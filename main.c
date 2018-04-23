@@ -13,16 +13,25 @@
 # define BDIV ( FOSC / 100000 - 16) / 2 + 1
 
 #define MYSTRING_LEN(s) strlen(s)
-#define T_MENU_1_1_LV1 "Local Control"
-#define T_MENU_2_1_LV1 "Remote Control"
-#define T_MENU_3_1_LV1 "Menu Item C"
-#define T_MENU_4_1_LV1 "Menu Item D"
+#define T_MENU_1_1_LV1 "Local Control     "
+#define T_MENU_2_1_LV1 "Remote Control    "
+#define T_MENU_3_1_LV1 "Interlink Ctrl    "
+#define T_MENU_4_1_LV1 "                  "
 
-#define T_MENU_1_1_LV2 "Display Local Sensor"
-#define T_MENU_2_1_LV2 "Operation Modes"
-#define T_MENU_3_1_LV2 "Threshold Setting"
+#define T_MENU_1_1_LV2 "Show Local Sensor "
+#define T_MENU_2_1_LV2 "Operation Modes   "
+#define T_MENU_3_1_LV2 "Threshold Setting "
+#define T_MENU_4_1_LV2 "Time Setting      "
 
-#define T_MENU_1_2_LV2 "Display Remote Sensor"
+#define T_MENU_1_4_1_LV3 "Current Time      "
+#define T_MENU_2_4_1_LV3 "Change Time       "
+#define T_MENU_3_4_1_LV3 "Current Alarm     "
+#define T_MENU_4_4_1_LV3 "Change Alarm      "
+
+#define T_MENU_1_2_LV2 "Show Remote Sensor"
+
+// #define MOIST_MAX 1000
+// #define MOIST_MIN 100
 
 // define state number for state machine
 
@@ -33,9 +42,15 @@ enum STATE_BUTTON {STATE_BUTTON_UP_LEFT, STATE_BUTTON_BOTTOM_LEFT,
 				   STATE_B_INIT};
 
 enum STATE_MENU {
-				MENU_1_1_LV1, MENU_2_1_LV1, MENU_3_1_LV1, MENU_4_1_LV1,
+				MENU_1_1_LV1, MENU_2_1_LV1, MENU_3_1_LV1, MENU_4_1_LV1,IN_MENU_3_1_LV1,
 
-				MENU_1_1_LV2, MENU_2_1_LV2, MENU_3_1_LV2,
+				MENU_1_1_LV2, MENU_2_1_LV2, MENU_3_1_LV2, MENU_4_1_LV2, 
+
+				MENU_1_4_1_LV3, MENU_2_4_1_LV3, MENU_3_4_1_LV3, MENU_4_4_1_LV3, 
+
+				IN_MENU_1_1_LV2, IN_MENU_3_1_LV2, IN_MENU_2_1_LV2, IN_MENU_2_1_LV1, 
+
+				IN_MENU_1_4_1_LV3, IN_MENU_2_4_1_LV3, IN_MENU_3_4_1_LV3, IN_MENU_4_4_1_LV3
 				};
 
 
@@ -50,17 +65,39 @@ enum STATE_MENU {
 // # define STATE_B_BR_PRESSED 8
 
 // # define STATE_B_INIT 0
-int adc_photo = 0;
-int adc_moist = 0;
+volatile char mode = 1;     // 0 = auto mode, 1 = alarm mode
+volatile char previous_mode = 1;
+volatile char pump_flag = 0;
 
-unsigned char old_sec = NULL;
-unsigned char old_minute = NULL;
-unsigned char old_hour = NULL;
+volatile int upper = 0;
+volatile int lower = 0;
 
-unsigned char old_day = NULL;
+volatile int adc_photo = 0;
+volatile int adc_moist = 0;
+volatile int moist_threshold = 200;
+
+volatile int remote_adc_photo = 0;
+volatile int remote_adc_moist = 0;
+
+volatile unsigned char old_sec = 0;
+volatile unsigned char old_minute = 0;
+volatile unsigned char old_hour = 0;
+
+volatile int new_minute = 0;
+volatile int new_hour = 0;
+
+volatile unsigned char old_day = 0;
 // unsigned char old_weekday = NULL;
-unsigned char old_month = NULL;
-unsigned char old_year = NULL;
+volatile unsigned char old_month = 0;
+volatile unsigned char old_year = 0;
+
+volatile unsigned char alarm_sec = 0;
+volatile unsigned char alarm_minute = 1;
+volatile unsigned char alarm_hour = 23;
+
+volatile unsigned char pre_alarm_sec = 0;
+volatile unsigned char pre_alarm_minute = 0;
+volatile unsigned char pre_alarm_hour = 0;
 
 // extern bool Received_ISR_end;
 // extern struct Array* storage_buffer;
@@ -69,11 +106,13 @@ unsigned char old_year = NULL;
 // char single_buf;
 volatile char single_buf[10];
 volatile bool Received_ISR_end = 0;
-volatile int counter = 0;
+volatile int sci_rx_counter = 0;
 
 volatile int count = 0;
 volatile int before = 0;
 volatile int hold = 0;
+
+volatile char available_id[10];
 
 // char letter_to_lcd_hex(char input){
 // 	if(input == ' '){
@@ -90,75 +129,11 @@ void adc_subroutine(){
 		//Start ADC on channel 1 = PC1
 	int result1 = readAdc(1);
 	adc_photo = result1;
-	int thousands = result1 / 1000;
-	int temp = result1 %1000;
-
-	int hundreds = temp / 100;
-	temp = temp%100;
-
-	int tens = temp/10;
-	temp = temp%10;
-
-	int ones = temp;
-
-	Set_Cursor_Line_1();
-	_delay_ms(10);
-	char out = 0x30;
-	out += thousands;
-	Print_a_character(out);
-	_delay_ms(50);
-
-	out = 0x30;
-	out += hundreds;
-	Print_a_character(out);
-	_delay_ms(50);
-
-	out = 0x30;
-	out += tens;
-	Print_a_character(out);
-	_delay_ms(50);
-
-	out = 0x30;
-	out += ones;
-	Print_a_character(out);
-	_delay_ms(100);
-
-	Set_Cursor_Line_2();
-	_delay_ms(100);
-
+	_delay_ms(20);
 	//Start ADC on channel 2 = PC2
 	int result2 = readAdc(2);
 	adc_moist = result2;
-	thousands = result2 / 1000;
-	temp = result2 %1000;
-
-	hundreds = temp / 100;
-	temp = temp%100;
-
-	tens = temp/10;
-	temp = temp%10;
-
-	ones = temp;
-
-	out = 0x30;
-	out += thousands;
-	Print_a_character(out);
-	_delay_ms(50);
-
-	out = 0x30;
-	out += hundreds;
-	Print_a_character(out);
-	_delay_ms(50);
-
-	out = 0x30;
-	out += tens;
-	Print_a_character(out);
-	_delay_ms(50);
-
-	out = 0x30;
-	out += ones;
-	Print_a_character(out);
-	_delay_ms(100);
+	_delay_ms(20);
 }
 
 char rtc_subroutine_time(){
@@ -179,33 +154,33 @@ char rtc_subroutine_time(){
 		update_hour = 1;
 	}
 
-	if(update_hour){
+
+	if(update_sec){
 		unsigned char temp;
-		unsigned char tens = current_hour / 10;
-		temp = current_hour % 10;
+		unsigned char tens = current_sec / 10;
+		temp = current_sec % 10;
 		unsigned char ones = temp;
 
-		uint8_t status = Cursor_POS(0x40);
+		// uint8_t status = Cursor_POS(0x44);
 		_delay_ms(10);
-		if(status==0){
+		// if(status==0){
 
-			unsigned char out = 0x30;
-			out += tens;
-			status = Print_a_character(out);
-			_delay_ms(10);
-			if(status==0){
+			// unsigned char out = 0x30;
+			// out += tens;
+			// status = Print_a_character(out);
+			// _delay_ms(10);
+			// if(status==0){
 
-				out = 0x30;
-				out += ones;
-				status = Print_a_character(out);
-				_delay_ms(10);
+				// out = 0x30;
+				// out += ones;
+				// status = Print_a_character(out);
+				// _delay_ms(10);
 
-				old_hour = current_hour;
-			}
-		}
+				old_sec = current_sec;
+			// }
+		// }
 	}
 
-	// Print_a_character(0x3C);
 
 	if(update_minute){
 		unsigned char temp;
@@ -213,54 +188,55 @@ char rtc_subroutine_time(){
 		temp = current_minute % 10;
 		unsigned char ones = temp;
 
-		uint8_t status = Cursor_POS(0x42);
+		// uint8_t status = Cursor_POS(0x42);
 		_delay_ms(10);
-		if(status==0){
+		// if(status==0){
 
-			unsigned char out = 0x30;
-			out += tens;
-			status = Print_a_character(out);
-			_delay_ms(10);
-			if(status==0){
+			// unsigned char out = 0x30;
+			// out += tens;
+			// status = Print_a_character(out);
+			// _delay_ms(10);
+			// if(status==0){
 
-				out = 0x30;
-				out += ones;
-				status = Print_a_character(out);
-				_delay_ms(10);
+			// 	out = 0x30;
+			// 	out += ones;
+			// 	status = Print_a_character(out);
+			// 	_delay_ms(10);
 
 				old_minute = current_minute;
-			}
-		}
+			// }
+		// }
+	}
+
+	if(update_hour){
+		unsigned char temp;
+		unsigned char tens = current_hour / 10;
+		temp = current_hour % 10;
+		unsigned char ones = temp;
+
+		// uint8_t status = Cursor_POS(0x40);
+		_delay_ms(10);
+		// if(status==0){
+
+			// unsigned char out = 0x30;
+			// out += tens;
+			// status = Print_a_character(out);
+			// _delay_ms(10);
+			// if(status==0){
+
+			// 	out = 0x30;
+			// 	out += ones;
+			// 	status = Print_a_character(out);
+			// 	_delay_ms(10);
+
+				old_hour = current_hour;
+			// }
+		// }
 	}
 
 	// Print_a_character(0x3C);
 
-	// if(update_sec){
-	// 	unsigned char temp;
-	// 	unsigned char tens = current_sec / 10;
-	// 	temp = current_sec % 10;
-	// 	unsigned char ones = temp;
-
-	// 	uint8_t status = Cursor_POS(0x44);
-	// 	_delay_ms(10);
-	// 	if(status==0){
-
-	// 		unsigned char out = 0x30;
-	// 		out += tens;
-	// 		status = Print_a_character(out);
-	// 		_delay_ms(10);
-	// 		if(status==0){
-
-	// 			out = 0x30;
-	// 			out += ones;
-	// 			status = Print_a_character(out);
-	// 			_delay_ms(10);
-
-	// 			old_sec = current_sec;
-	// 		}
-	// 	}
-	// }
-
+	// Print_a_character(0x3C);
 	return 1;
 }
 
@@ -289,24 +265,24 @@ char rtc_subroutine_date(){
 		temp = current_year % 10;
 		unsigned char ones = temp;
 
-		uint8_t status = Cursor_POS(0x00);
+		// uint8_t status = Cursor_POS(0x00);
 		_delay_ms(10);
-		if(status==0){
+		// if(status==0){
 
-			unsigned char out = 0x30;
-			out += tens;
-			status = Print_a_character(out);
-			_delay_ms(10);
-			if(status==0){
+			// unsigned char out = 0x30;
+			// out += tens;
+			// status = Print_a_character(out);
+			// _delay_ms(10);
+			// if(status==0){
 
-				out = 0x30;
-				out += ones;
-				status = Print_a_character(out);
-				_delay_ms(10);
+				// out = 0x30;
+				// out += ones;
+				// status = Print_a_character(out);
+				// _delay_ms(10);
 
 				old_year = current_year;
-			}
-		}
+			// }
+		// }
 	}
 
 	// Print_a_character(0x3C);
@@ -317,24 +293,24 @@ char rtc_subroutine_date(){
 		temp = current_month % 10;
 		unsigned char ones = temp;
 
-		uint8_t status = Cursor_POS(0x02);
+		// uint8_t status = Cursor_POS(0x02);
 		_delay_ms(10);
-		if(status==0){
+		// if(status==0){
 
-			unsigned char out = 0x30;
-			out += tens;
-			status = Print_a_character(out);
-			_delay_ms(10);
-			if(status==0){
+			// unsigned char out = 0x30;
+			// out += tens;
+			// status = Print_a_character(out);
+			// _delay_ms(10);
+			// if(status==0){
 
-				out = 0x30;
-				out += ones;
-				status = Print_a_character(out);
-				_delay_ms(10);
+				// out = 0x30;
+				// out += ones;
+				// status = Print_a_character(out);
+				// _delay_ms(10);
 
 				old_month = current_month;
-			}
-		}
+			// }
+		// }
 	}
 
 	// Print_a_character(0x3C);
@@ -345,29 +321,29 @@ char rtc_subroutine_date(){
 		temp = current_day % 10;
 		unsigned char ones = temp;
 
-		uint8_t status = Cursor_POS(0x04);
+		// uint8_t status = Cursor_POS(0x04);
 		_delay_ms(10);
-		if(status==0){
+		// if(status==0){
 
-			unsigned char out = 0x30;
-			out += tens;
-			status = Print_a_character(out);
-			_delay_ms(10);
-			if(status==0){
+			// unsigned char out = 0x30;
+			// out += tens;
+			// status = Print_a_character(out);
+			// _delay_ms(10);
+			// if(status==0){
 
-				out = 0x30;
-				out += ones;
-				status = Print_a_character(out);
-				_delay_ms(10);
+				// out = 0x30;
+				// out += ones;
+				// status = Print_a_character(out);
+				// _delay_ms(10);
 
 				old_day = current_day;
-			}
-		}
+			// }
+		// }
 
 		//Then print which weekday
-		unsigned char out = 0x30;
-		out += current_weekday;
-		status = Print_a_character(out);
+		// unsigned char out = 0x30;
+		// out += current_weekday;
+		// status = Print_a_character(out);
 	}
 
 	return 1;
@@ -395,6 +371,19 @@ char checkInput(char bit)
         return(0);
 }
 
+void print_0x30(unsigned char bit){
+	unsigned char out = 0x30;
+	out += bit;
+	Print_a_character(out);
+	_delay_ms(10);
+	return;
+}
+
+void print_buf(){
+	Print_multiple_character(single_buf, 10);
+	return;
+}
+
 void reset_to_menu_lv1(void){
 	Display_Clear();
 
@@ -411,7 +400,7 @@ void reset_to_menu_lv1(void){
 	Set_Cursor_Line_1();
 	_delay_ms(50);
 	Print_multiple_character(T_MENU_1_1_LV1, MYSTRING_LEN(T_MENU_1_1_LV1));
-	Print_a_character(0x3c);
+	// Print_a_character(0x3c);
 }
 
 void reset_to_menu_1_lv2(void){
@@ -423,9 +412,51 @@ void reset_to_menu_1_lv2(void){
 	Set_Cursor_Line_3();
 	Print_multiple_character(T_MENU_3_1_LV2, MYSTRING_LEN(T_MENU_3_1_LV2));
 
+	Set_Cursor_Line_4();
+	Print_multiple_character(T_MENU_4_1_LV2, MYSTRING_LEN(T_MENU_4_1_LV2));
+
 	Set_Cursor_Line_1();
 	Print_multiple_character(T_MENU_1_1_LV2, MYSTRING_LEN(T_MENU_1_1_LV2));
-	Print_a_character(0x3c);
+	// Print_a_character(0x3c);
+}
+
+void reset_to_menu_4_1_lv3(void){
+	Display_Clear();
+
+	Set_Cursor_Line_2();
+	Print_multiple_character(T_MENU_2_4_1_LV3, MYSTRING_LEN(T_MENU_2_4_1_LV3));
+
+	Set_Cursor_Line_3();
+	Print_multiple_character(T_MENU_3_4_1_LV3, MYSTRING_LEN(T_MENU_3_4_1_LV3));
+
+	Set_Cursor_Line_4();
+	Print_multiple_character(T_MENU_4_4_1_LV3, MYSTRING_LEN(T_MENU_4_4_1_LV3));
+
+	Set_Cursor_Line_1();
+	Print_multiple_character(T_MENU_1_4_1_LV3, MYSTRING_LEN(T_MENU_1_4_1_LV3));
+	// Print_a_character(0x3c);
+}
+
+char check_alarm(){
+	if(old_minute == alarm_minute && old_hour == alarm_hour){
+		pre_alarm_hour = old_hour;
+		pre_alarm_minute = old_minute;
+		// pre_alarm_sec = old_sec;
+		return 1;
+	}
+	return 0;
+}
+
+unsigned char calc_diff(unsigned char later, unsigned char before){
+	if(later >= before){
+		return later - before;
+	}else{
+		unsigned char top = 60;
+		unsigned char bot = 0;
+		unsigned char before_to_60 = top - before;
+		unsigned later_to_0 = later - bot;
+		return before_to_60 + later_to_0;
+	}
 }
 
 ISR(PCINT0_vect){
@@ -438,15 +469,15 @@ ISR(PCINT0_vect){
         //turned clockwise
         if (hold == 1){
             count++;
-            if(count>59){
-            	count=0;
+            if(count>upper){
+            	count=upper;
             }
         }
         //turned counter clockwise
         else if (hold == 2){
             count--;
-            if(count<0){
-            	count=59;
+            if(count<lower){
+            	count=lower;
             }
         }
     }
@@ -456,15 +487,15 @@ ISR(PCINT0_vect){
         //turned clockwise
         if (hold == 3){
             count++;
-            if(count>59){
-            	count=0;
+            if(count>upper){
+            	count=upper;
             }
         }
         //turned counterclockwise
         else if(hold == 0){
             count--;
-            if(count<0){
-            	count=59;
+            if(count<lower){
+            	count=lower;
             }
         }
         
@@ -475,15 +506,15 @@ ISR(PCINT0_vect){
         //turned clockwise
         if (hold == 2){
             count++;
-            if(count>59){
-            	count=0;
+            if(count>upper){
+            	count=upper;
             }
         }
         //turned counterclockwise
         else if (hold == 1){
             count--;
-            if(count<0){
-            	count=59;
+            if(count<lower){
+            	count=lower;
             }
         }
         
@@ -494,15 +525,15 @@ ISR(PCINT0_vect){
         //turned clockwise
         if (hold == 0){
             count++;
-            if(count>59){
-            	count=0;
+            if(count>upper){
+            	count=upper;
             }
         }
         //turned counterclockwise
         else if (hold == 3){
             count--;
-            if(count<0){
-            	count=59;
+            if(count<lower){
+            	count=lower;
             }
         }
         
@@ -516,16 +547,17 @@ ISR(USART_RX_vect)
 	// Code to be executed when the USART receives a byte here
 	char ch;
 
-    ch = UDR0;                  // Get the received charater
+    // ch = UDR0;                  // Get the received charater
+    ch = sci_in();
 
     // Store in buffer
     // insertArray(storage_buffer, ch);
     if(!Received_ISR_end){
     // Print_a_character(ch);
-      single_buf[counter] = ch;
-      counter++;
+      single_buf[sci_rx_counter] = ch;
+      sci_rx_counter++;
     }
-    if(counter == 10){
+    if(sci_rx_counter == 10){
     	Received_ISR_end = 1;
     }
     // If message complete, set flag
@@ -537,6 +569,7 @@ ISR(USART_RX_vect)
 int main(void){
 	// PORTC = 0x00;
 	DDRC &= 0b11110000;
+	DDRC |= 0b00000001;
 
 	PORTD = 0x00;
 	DDRD &= 0b11000011; // 5, 4, 3, 2 is input
@@ -563,9 +596,9 @@ int main(void){
 	i2c_init(BDIV*2);
 	_delay_ms(200);
 
-	// initClock();
-	// setTime(23,59,30);
-	// setDate(30, 4, 9, 0, 18);
+	initClock();
+	setTime(22,59,30);
+	setDate(30, 4, 9, 0, 18);
 
 
 	Display_Clear();
@@ -575,29 +608,29 @@ int main(void){
 
 	sci_init();
 
+	int i = 0;
+	for(i=0;i<10;i++){
+		available_id[i] = 0;
+	}
+
 	// ----------------------- Segment for menu testing
-	// Set_Cursor_Line_1();
-	// _delay_ms(50);
-	// Print_multiple_character(T_MENU_1_1_LV1, MYSTRING_LEN(T_MENU_1_1_LV1));
-	// Set_Cursor_Line_2();
-	// _delay_ms(50);
-	// Print_multiple_character(T_MENU_2_1_LV1, MYSTRING_LEN(T_MENU_2_1_LV1));
-	// Set_Cursor_Line_3();
-	// _delay_ms(50);
-	// Print_multiple_character(T_MENU_3_1_LV1, MYSTRING_LEN(T_MENU_3_1_LV1));
-	// Set_Cursor_Line_4();
-	// _delay_ms(50);
-	// Print_multiple_character(T_MENU_4_1_LV1, MYSTRING_LEN(T_MENU_4_1_LV1));
-	// Cursor_Home();
+	Set_Cursor_Line_2();
+	_delay_ms(50);
+	Print_multiple_character(T_MENU_2_1_LV1, MYSTRING_LEN(T_MENU_2_1_LV1));
+	Set_Cursor_Line_3();
+	_delay_ms(50);
+	Print_multiple_character(T_MENU_3_1_LV1, MYSTRING_LEN(T_MENU_3_1_LV1));
+	Set_Cursor_Line_4();
+	_delay_ms(50);
+	Print_multiple_character(T_MENU_4_1_LV1, MYSTRING_LEN(T_MENU_4_1_LV1));
+	Set_Cursor_Line_1();
+	_delay_ms(50);
+	Print_multiple_character(T_MENU_1_1_LV1, MYSTRING_LEN(T_MENU_1_1_LV1));
 	
 
 	/* ----------------------  Segment for Serial Communication Testing
 	*/
 
-	// sci_outs("AT");
-	// sci_out('A');
-	// rtc_subroutine_time();
-	// Print_a_character(0x35);
 	while(1){
 		// Print_a_character(0x35);
 		// sci_out(0b01010101);
@@ -605,9 +638,42 @@ int main(void){
 		// sci_out('X');
 		// sci_outs("aBcd");
 		// sci_outs("AT");
-		// adc_subroutine();
-		// rtc_subroutine_time();
-		// char flag = rtc_subroutine_date();
+		adc_subroutine();
+		_delay_ms(5);
+		rtc_subroutine_time();
+		_delay_ms(5);
+		rtc_subroutine_date();
+		_delay_ms(5);
+		int temp_thre = moist_threshold;
+		if(adc_moist < temp_thre && mode == 0){
+			pump_flag = 1;
+		}else if(adc_moist >= temp_thre && mode == 0){
+			pump_flag = 0;
+		}else if(check_alarm() && mode == 1){
+			pump_flag = 1;
+			sci_outs("01WW000000");
+		}
+
+		if(mode==0){
+			sci_outs("01AU000000");
+		}
+
+		if(mode == 1){
+			// unsigned char diff = calc_diff(old_sec, pre_alarm_sec);
+			// if(diff>15){
+			// 	pump_flag = 0;
+			// }
+			if(old_sec > 15){
+				pump_flag = 0;
+				sci_outs("01NN000000");
+			}
+		}
+
+		if(pump_flag == 1){
+			PORTC |= 1 << PC0;
+		}else{
+			PORTC &= 0 << PC0;
+		}
 
 		// if(flag){
 		// 	Cursor_Home();
@@ -674,7 +740,7 @@ int main(void){
 
 			case STATE_B_UL_PRESSED:
 				button_state = 2;
-				Display_Clear();
+				// Display_Clear();
 				button_check = checkInput(3);
 				if(button_check){
 					test_button = STATE_B_INIT;
@@ -682,9 +748,9 @@ int main(void){
 				break;
 			case STATE_B_UR_PRESSED:
 				button_state = 4;
-				sci_outs("SEND");
-				Set_Cursor_Line_2();
-				Print_multiple_character("SEND", 4);
+				// sci_outs("SEND");
+				// Set_Cursor_Line_2();
+				// Print_multiple_character("SEND", 4);
 				button_check = checkInput(2);
 				if(button_check){
 					test_button = STATE_B_INIT;
@@ -699,10 +765,9 @@ int main(void){
 				break;
 			case STATE_B_BR_PRESSED:
 				button_state = 8;
-				sci_outs("GGGG");
-				Set_Cursor_Line_2();
-				Print_multiple_character("GGGG", 4);
-				button_check = checkInput(2);
+				// sci_outs("GGGG");
+				// Set_Cursor_Line_2();
+				// Print_multiple_character("GGGG", 4);
 				button_check = checkInput(5);
 				if(button_check){
 					test_button = STATE_B_INIT;
@@ -720,115 +785,479 @@ int main(void){
 		// /*----------------------- Segment for basic menu navigation
 		// */
 		
-		// switch(test_menu){
-		// 	case MENU_1_1_LV1:
-		// 		if(test_button==STATE_BUTTON_UP_LEFT){
-		// 			test_menu = MENU_4_1_LV1;
-		// 		}else if(test_button==STATE_BUTTON_BOTTOM_LEFT){
-		// 			test_menu = MENU_2_1_LV1;
-		// 		}else if(test_button==STATE_BUTTON_UP_RIGHT){
-		// 			test_menu = MENU_1_1_LV2;
-		// 			reset_to_menu_1_lv2();
-		// 		}
-		// 		break;
-		// 	case MENU_2_1_LV1:
-		// 		if(test_button==STATE_BUTTON_UP_LEFT){
-		// 			test_menu = MENU_1_1_LV1;
-		// 		}else if(test_button==STATE_BUTTON_BOTTOM_LEFT){
-		// 			test_menu = MENU_3_1_LV1;
-		// 		}
-		// 		break;
-		// 	case MENU_3_1_LV1:
-		// 		if(test_button==STATE_BUTTON_UP_LEFT){
-		// 			test_menu = MENU_2_1_LV1;
-		// 		}else if(test_button==STATE_BUTTON_BOTTOM_LEFT){
-		// 			test_menu = MENU_4_1_LV1;
-		// 		}
-		// 		break;
-		// 	case MENU_4_1_LV1:
-		// 		if(test_button==STATE_BUTTON_UP_LEFT){
-		// 			test_menu = MENU_3_1_LV1;
-		// 		}else if(test_button==STATE_BUTTON_BOTTOM_LEFT){
-		// 			test_menu = MENU_1_1_LV1;
-		// 		}
-		// 		break;
-		// 	case MENU_1_1_LV2:
-		// 		if(test_button==STATE_BUTTON_UP_LEFT){
-		// 			test_menu = MENU_3_1_LV2;
-		// 		}else if(test_button==STATE_BUTTON_BOTTOM_LEFT){
-		// 			test_menu = MENU_2_1_LV2;
-		// 		}else if(test_button==STATE_BUTTON_BOTTOM_RIGHT){
-		// 			test_menu = MENU_1_1_LV1;
-		// 			reset_to_menu_lv1();
-		// 		}
-		// 		break;
-		// 	case MENU_2_1_LV2:
-		// 		if(test_button==STATE_BUTTON_UP_LEFT){
-		// 			test_menu = MENU_1_1_LV2;
-		// 		}else if(test_button==STATE_BUTTON_BOTTOM_LEFT){
-		// 			test_menu = MENU_3_1_LV2;
-		// 		}else if(test_button==STATE_BUTTON_BOTTOM_RIGHT){
-		// 			test_menu = MENU_1_1_LV1;
-		// 			reset_to_menu_lv1();
-		// 		}
-		// 		break;
-		// 	case MENU_3_1_LV2:
-		// 		if(test_button==STATE_BUTTON_UP_LEFT){
-		// 			test_menu = MENU_2_1_LV2;
-		// 		}else if(test_button==STATE_BUTTON_BOTTOM_LEFT){
-		// 			test_menu = MENU_1_1_LV2;
-		// 		}else if(test_button==STATE_BUTTON_BOTTOM_RIGHT){
-		// 			test_menu = MENU_1_1_LV1;
-		// 			reset_to_menu_lv1();
-		// 		}
-		// 		break;
-		// }
+		switch(test_menu){
+			case MENU_1_1_LV1:
+				if(test_button==STATE_B_UL_PRESSED){
+					test_menu = MENU_4_1_LV1;
+				}else if(test_button==STATE_B_BL_PRESSED){
+					test_menu = MENU_2_1_LV1;
+				}else if(test_button==STATE_B_UR_PRESSED){
+					test_menu = MENU_1_1_LV2;
+					reset_to_menu_1_lv2();
+				}
+				break;
+			case MENU_2_1_LV1:
+				if(test_button==STATE_B_UL_PRESSED){
+					test_menu = MENU_1_1_LV1;
+				}else if(test_button==STATE_B_BL_PRESSED){
+					test_menu = MENU_3_1_LV1;
+				}else if(test_button==STATE_B_UR_PRESSED){
+					test_menu = IN_MENU_2_1_LV1;
+					Display_Clear();
+				}
+				break;
+			case IN_MENU_2_1_LV1:
+				if(test_button==STATE_B_BR_PRESSED){
+					test_menu = MENU_1_1_LV1;
+					reset_to_menu_lv1();
+				}
+				break;
+			case MENU_3_1_LV1:
+				if(test_button==STATE_B_UL_PRESSED){
+					test_menu = MENU_2_1_LV1;
+				}else if(test_button==STATE_B_BL_PRESSED){
+					test_menu = MENU_4_1_LV1;
+				}else if(test_button==STATE_B_UR_PRESSED){
+					test_menu = IN_MENU_3_1_LV1;
+					Display_Clear();
+				}
+				break;
+			case IN_MENU_3_1_LV1:
+				if(test_button==STATE_B_BR_PRESSED){
+					test_menu = MENU_1_1_LV1;
+					reset_to_menu_lv1();
+				}
+				break;
+			case MENU_4_1_LV1:
+				if(test_button==STATE_B_UL_PRESSED){
+					test_menu = MENU_3_1_LV1;
+				}else if(test_button==STATE_B_BL_PRESSED){
+					test_menu = MENU_1_1_LV1;
+				}
+				break;
+			case MENU_1_1_LV2:
+				if(test_button==STATE_B_UL_PRESSED){
+					test_menu = MENU_4_1_LV2;
+				}else if(test_button==STATE_B_BL_PRESSED){
+					test_menu = MENU_2_1_LV2;
+				}else if(test_button==STATE_B_BR_PRESSED){
+					test_menu = MENU_1_1_LV1;
+					reset_to_menu_lv1();
+				}else if(test_button==STATE_B_UR_PRESSED){
+					test_menu = IN_MENU_1_1_LV2;
+					Display_Clear();
+				}
+				break;
+			case MENU_2_1_LV2:
+				if(test_button==STATE_B_UL_PRESSED){
+					test_menu = MENU_1_1_LV2;
+				}else if(test_button==STATE_B_BL_PRESSED){
+					test_menu = MENU_3_1_LV2;
+				}else if(test_button==STATE_B_BR_PRESSED){
+					test_menu = MENU_1_1_LV1;
+					reset_to_menu_lv1();
+				}else if(test_button==STATE_B_UR_PRESSED){
+					test_menu = IN_MENU_2_1_LV2;
+					Display_Clear();
+				}
+				break;
+			case IN_MENU_2_1_LV2:
+				if(test_button==STATE_B_UR_PRESSED){
+					test_menu = MENU_1_1_LV2;
+					mode = previous_mode;
+					reset_to_menu_1_lv2();
+				}else if(test_button==STATE_B_BR_PRESSED){
+					test_menu = MENU_1_1_LV2;
+					reset_to_menu_1_lv2();
+				}
+				break;
+			case MENU_3_1_LV2:
+				if(test_button==STATE_B_UL_PRESSED){
+					test_menu = MENU_2_1_LV2;
+				}else if(test_button==STATE_B_BL_PRESSED){
+					test_menu = MENU_4_1_LV2;
+				}else if(test_button==STATE_B_BR_PRESSED){
+					test_menu = MENU_1_1_LV1;
+					reset_to_menu_lv1();
+				}else if(test_button==STATE_B_UR_PRESSED){
+					test_menu = IN_MENU_3_1_LV2;
+					count = moist_threshold;
+					upper = 1000;
+					lower = 100;
+					Display_Clear();
+				}
+				break;
+			case MENU_4_1_LV2:
+				if(test_button==STATE_B_UL_PRESSED){
+					test_menu = MENU_3_1_LV2;
+				}else if(test_button==STATE_B_BL_PRESSED){
+					test_menu = MENU_1_1_LV2;
+				}else if(test_button==STATE_B_BR_PRESSED){
+					test_menu = MENU_1_1_LV1;
+					reset_to_menu_lv1();
+				}else if(test_button==STATE_B_UR_PRESSED){
+					test_menu = MENU_1_4_1_LV3;
+					Display_Clear();
+					reset_to_menu_4_1_lv3();
+				}
+				break;
+			case IN_MENU_1_1_LV2:
+				if(test_button==STATE_B_BR_PRESSED){
+					test_menu = MENU_1_1_LV2;
+					reset_to_menu_1_lv2();
+				}
+				break;
+			case IN_MENU_3_1_LV2:
+				if(test_button==STATE_B_UR_PRESSED){
+					test_menu = MENU_1_1_LV2;
+					moist_threshold = count;
+					reset_to_menu_1_lv2();
+				}
+				break;
+			case MENU_1_4_1_LV3:
+				if(test_button==STATE_B_UL_PRESSED){
+					test_menu = MENU_4_4_1_LV3;
+				}else if(test_button==STATE_B_BL_PRESSED){
+					test_menu = MENU_2_4_1_LV3;
+				}else if(test_button==STATE_B_BR_PRESSED){
+					test_menu = MENU_4_1_LV2;
+					reset_to_menu_1_lv2();
+				}else if(test_button==STATE_B_UR_PRESSED){
+					test_menu = IN_MENU_1_4_1_LV3;
+					Display_Clear();
+				}
+				break;
+			case IN_MENU_1_4_1_LV3:
+				if(test_button==STATE_B_BR_PRESSED){
+					test_menu = MENU_1_4_1_LV3;
+					reset_to_menu_4_1_lv3();
+				}
+				break;
+			case MENU_2_4_1_LV3:
+				if(test_button==STATE_B_UL_PRESSED){
+					test_menu = MENU_1_4_1_LV3;
+				}else if(test_button==STATE_B_BL_PRESSED){
+					test_menu = MENU_3_4_1_LV3;
+				}else if(test_button==STATE_B_BR_PRESSED){
+					test_menu = MENU_4_1_LV2;
+					reset_to_menu_1_lv2();
+				}else if(test_button==STATE_B_UR_PRESSED){
+					test_menu = IN_MENU_2_4_1_LV3;
+					count = 0;
+					upper = 61;
+					lower = -1;
+					Display_Clear();
+				}
+				break;
+			case IN_MENU_2_4_1_LV3:
+				if(test_button==STATE_B_UL_PRESSED){
+					Display_Clear();
+				}
+				else if(test_button==STATE_B_UR_PRESSED){
+					setTime(new_hour, new_minute, 0);
+					test_menu = MENU_2_4_1_LV3;
+					reset_to_menu_4_1_lv3();
+				}
+				else if(test_button==STATE_B_BR_PRESSED){
+					test_menu = MENU_2_4_1_LV3;
+					reset_to_menu_4_1_lv3();
+				}
+				break;
+			case MENU_3_4_1_LV3:
+				if(test_button==STATE_B_UL_PRESSED){
+					test_menu = MENU_2_4_1_LV3;
+				}else if(test_button==STATE_B_BL_PRESSED){
+					test_menu = MENU_4_4_1_LV3;
+				}else if(test_button==STATE_B_BR_PRESSED){
+					test_menu = MENU_4_1_LV2;
+					reset_to_menu_1_lv2();
+				}else if(test_button==STATE_B_UR_PRESSED){
+					test_menu = IN_MENU_3_4_1_LV3;
+					Display_Clear();
+				}
+				break;
+			case IN_MENU_3_4_1_LV3:
+				if(test_button==STATE_B_BR_PRESSED){
+					test_menu = MENU_1_4_1_LV3;
+					reset_to_menu_4_1_lv3();
+				}
+				break;
+			case MENU_4_4_1_LV3:
+				if(test_button==STATE_B_UL_PRESSED){
+					test_menu = MENU_3_4_1_LV3;
+				}else if(test_button==STATE_B_BL_PRESSED){
+					test_menu = MENU_1_4_1_LV3;
+				}else if(test_button==STATE_B_BR_PRESSED){
+					test_menu = MENU_4_1_LV2;
+					reset_to_menu_1_lv2();
+				}else if(test_button==STATE_B_UR_PRESSED){
+					test_menu = IN_MENU_4_4_1_LV3;
+					count = 0;
+					upper = 61;
+					lower = -1;
+					Display_Clear();
+				}
+				break;
+			case IN_MENU_4_4_1_LV3:
+				if(test_button==STATE_B_UL_PRESSED){
+					Display_Clear();
+				}
+				else if(test_button==STATE_B_UR_PRESSED){
+					// setTime(new_hour, new_minute, 0);
+					alarm_hour = new_hour;
+					alarm_minute = new_minute;
+					test_menu = MENU_4_4_1_LV3;
+					reset_to_menu_4_1_lv3();
+				}
+				else if(test_button==STATE_B_BR_PRESSED){
+					test_menu = MENU_4_4_1_LV3;
+					reset_to_menu_4_1_lv3();
+				}
+				break;
+		}
+		int ary_cnt = 0;
+		char str2[2];
+		char str4[4];
+		char str6[6];
 
-		// switch(test_menu){
-		// 	case MENU_1_1_LV1:
-		// 		Cursor_BACKSPACE();
-		// 		Set_Cursor_Line_1();
-		// 		Print_multiple_character(T_MENU_1_1_LV1, MYSTRING_LEN(T_MENU_1_1_LV1));
-		// 		Print_a_character(0x3c);
-		// 		break;
-		// 	case MENU_2_1_LV1:
-		// 		Cursor_BACKSPACE();
-		// 		Set_Cursor_Line_2();
-		// 		Print_multiple_character(T_MENU_2_1_LV1, MYSTRING_LEN(T_MENU_2_1_LV1));
-		// 		Print_a_character(0x3c);
-		// 		break;
-		// 	case MENU_3_1_LV1:
-		// 		Cursor_BACKSPACE();
-		// 		Set_Cursor_Line_3();
-		// 		Print_multiple_character(T_MENU_3_1_LV1, MYSTRING_LEN(T_MENU_3_1_LV1));
-		// 		Print_a_character(0x3c);
-		// 		break;
-		// 	case MENU_4_1_LV1:
-		// 		Cursor_BACKSPACE();
-		// 		Set_Cursor_Line_4();
-		// 		Print_multiple_character(T_MENU_4_1_LV1, MYSTRING_LEN(T_MENU_4_1_LV1));
-		// 		Print_a_character(0x3c);
-		// 		break;
-		// 	case MENU_1_1_LV2:
-		// 		Cursor_BACKSPACE();
-		// 		Set_Cursor_Line_1();
-		// 		Print_multiple_character(T_MENU_1_1_LV2, MYSTRING_LEN(T_MENU_1_1_LV2));
-		// 		Print_a_character(0x3c);
-		// 		break;
-		// 	case MENU_2_1_LV2:
-		// 		Cursor_BACKSPACE();
-		// 		Set_Cursor_Line_2();
-		// 		Print_multiple_character(T_MENU_2_1_LV2, MYSTRING_LEN(T_MENU_2_1_LV2));
-		// 		Print_a_character(0x3c);
-		// 		break;
-		// 	case MENU_3_1_LV2:
-		// 		Cursor_BACKSPACE();
-		// 		Set_Cursor_Line_3();
-		// 		Print_multiple_character(T_MENU_3_1_LV2, MYSTRING_LEN(T_MENU_3_1_LV2));
-		// 		Print_a_character(0x3c);
-		// 		break;
-		// }
-		// _delay_ms(200);
+		switch(test_menu){
+			case MENU_1_1_LV1:
+				// Cursor_BACKSPACE();
+				_delay_ms(20);
+				Set_Cursor_Line_1();
+				Print_multiple_character(T_MENU_1_1_LV1, MYSTRING_LEN(T_MENU_1_1_LV1));
+				// Print_a_character(0x3c);
+				break;
+			case MENU_2_1_LV1:
+				// Cursor_BACKSPACE();
+				_delay_ms(20);
+				Set_Cursor_Line_2();
+				Print_multiple_character(T_MENU_2_1_LV1, MYSTRING_LEN(T_MENU_2_1_LV1));
+				// Print_a_character(0x3c);
+				break;
+			case IN_MENU_2_1_LV1:
+				_delay_ms(20);
+				Set_Cursor_Line_1();
+				Print_multiple_character("Moist: ", 7);
+				sprintf(str4, "%04d", remote_adc_moist);
+				Print_multiple_character(str4, 4);
+				_delay_ms(10);
+				Set_Cursor_Line_2();
+				Print_multiple_character("Light: ", 7);
+				sprintf(str4, "%04d", remote_adc_photo);
+				Print_multiple_character(str4, 4);
+				_delay_ms(10);
+				break;
+			case MENU_3_1_LV1:
+				// Cursor_BACKSPACE();
+				_delay_ms(20);
+				Set_Cursor_Line_3();
+				Print_multiple_character(T_MENU_3_1_LV1, MYSTRING_LEN(T_MENU_3_1_LV1));
+				// Print_a_character(0x3c);
+				break;
+			case IN_MENU_3_1_LV1:
+				_delay_ms(20);
+				Set_Cursor_Line_1();
+				Print_multiple_character("Connected Mods", 14);
+				_delay_ms(20);
+				Set_Cursor_Line_2();
+				for(ary_cnt=0;ary_cnt<10;ary_cnt++){
+					if(available_id[ary_cnt]==1){
+						sprintf(str2, "%02d", ary_cnt+1);
+						Print_multiple_character(str2, 2);
+					}
+				}
+				break;
+			case MENU_4_1_LV1:
+				// Cursor_BACKSPACE();
+				_delay_ms(20);
+				Set_Cursor_Line_4();
+				Print_multiple_character(T_MENU_4_1_LV1, MYSTRING_LEN(T_MENU_4_1_LV1));
+				// Print_a_character(0x3c);
+				break;
+			case MENU_1_1_LV2:
+				// Cursor_BACKSPACE();
+				_delay_ms(20);
+				Set_Cursor_Line_1();
+				Print_multiple_character(T_MENU_1_1_LV2, MYSTRING_LEN(T_MENU_1_1_LV2));
+				// Print_a_character(0x3c);
+				break;
+			case MENU_2_1_LV2:
+				// Cursor_BACKSPACE();
+				_delay_ms(20);
+				Set_Cursor_Line_2();
+				Print_multiple_character(T_MENU_2_1_LV2, MYSTRING_LEN(T_MENU_2_1_LV2));
+				// Print_a_character(0x3c);
+				break;
+			case IN_MENU_2_1_LV2:
+				_delay_ms(20);
+				Set_Cursor_Line_1();
+				Print_multiple_character("Mode", 4);
+				_delay_ms(20);
+				Set_Cursor_Line_2();
+				// sscanf(str2, "%02d", previous_mode);
+				// Print_multiple_character(str2, 2);
+				print_0x30(previous_mode);
+				if(test_button==STATE_B_UL_PRESSED && previous_mode==1){
+					previous_mode = 0;
+				}
+				if(test_button==STATE_B_BL_PRESSED && previous_mode==0){
+					previous_mode = 1;
+				}
+				break;
+			case MENU_3_1_LV2:
+				// Cursor_BACKSPACE();
+				_delay_ms(20);
+				Set_Cursor_Line_3();
+				Print_multiple_character(T_MENU_3_1_LV2, MYSTRING_LEN(T_MENU_3_1_LV2));
+				// Print_a_character(0x3c);
+				break;
+			case MENU_4_1_LV2:
+				_delay_ms(20);
+				Set_Cursor_Line_4();
+				Print_multiple_character(T_MENU_4_1_LV2, MYSTRING_LEN(T_MENU_4_1_LV2));
+				break;
+			case IN_MENU_1_1_LV2:
+				Set_Cursor_Line_1();
+				Print_multiple_character("Moist: ", 7);
+				sprintf(str4, "%04d", adc_moist);
+				Print_multiple_character(str4, 4);
+				_delay_ms(10);
+				Set_Cursor_Line_2();
+				Print_multiple_character("Light: ", 7);
+				sprintf(str4, "%04d", adc_photo);
+				Print_multiple_character(str4, 4);
+				_delay_ms(10);
+				break;
+			case IN_MENU_3_1_LV2:
+				Set_Cursor_Line_1();
+				Print_multiple_character("Threshold: ", 11);
+				Set_Cursor_Line_2();
+				sprintf(str4, "%04d", count);
+				Print_multiple_character(str4, 4);
+				_delay_ms(10);
+				break;
+			case MENU_1_4_1_LV3:
+				_delay_ms(20);
+				Set_Cursor_Line_1();
+				Print_multiple_character(T_MENU_1_4_1_LV3, MYSTRING_LEN(T_MENU_1_4_1_LV3));
+				break;
+			case IN_MENU_1_4_1_LV3:
+				Set_Cursor_Line_1();
+				// int date_all = old_year*10000 + old_month*100 +old_day;
+				// sprintf(str2, "%02d", old_year);
+				// Print_multiple_character(str2, 2);
+				// _delay_ms(10);
+				// sprintf(str2, "%02d", old_month);
+				// Print_multiple_character(str2, 2);
+				// _delay_ms(10);
+				// sprintf(str2, "%02d", old_day);
+				// Print_multiple_character(str2, 2);
+				// _delay_ms(10);
+				print_0x30(old_year/10);
+				print_0x30(old_year%10);
+				print_0x30(old_month/10);
+				print_0x30(old_month%10);
+				print_0x30(old_day/10);
+				print_0x30(old_day%10);
+
+				Set_Cursor_Line_2();
+				// int time_all = old_hour*100 + old_minute;
+				// sprintf(str2, "%02d", old_hour);
+				// Print_multiple_character(str2, 2);
+				// _delay_ms(10);
+				// sprintf(str2, "%02d", old_minute);
+				// Print_multiple_character(str2, 2);
+				// _delay_ms(10);
+				// Set_Cursor_Line_3();
+				// sprintf(str2, "%02d", old_weekday);
+				// Print_multiple_character(str2, 2);
+				// _delay_ms(10);
+				print_0x30(old_hour/10);
+				print_0x30(old_hour%10);
+				print_0x30(old_minute/10);
+				print_0x30(old_minute%10);
+				print_0x30(old_sec/10);
+				print_0x30(old_sec%10);
+				break;
+			case MENU_2_4_1_LV3:
+				_delay_ms(20);
+				Set_Cursor_Line_2();
+				Print_multiple_character(T_MENU_2_4_1_LV3, MYSTRING_LEN(T_MENU_2_4_1_LV3));
+				break;
+			case IN_MENU_2_4_1_LV3:
+				Cursor_Home();
+				new_minute = count;
+				if(new_minute >= 60){
+					new_minute = 0;
+					count = 0;
+					new_hour++;
+				}
+				if(new_minute <= -1){
+					new_minute = 59;
+					count = 59;
+					new_hour--;
+				}
+				if(new_hour > 23){
+					new_hour = 0;
+				}
+				if(new_hour < 0){
+					new_hour = 23;
+				}
+				sprintf(str2, "%02d", new_hour);
+				Print_multiple_character(str2, 2);
+				_delay_ms(20);
+				sprintf(str2, "%02d", new_minute);
+				Print_multiple_character(str2, 2);
+				_delay_ms(20);
+				break;
+			case MENU_3_4_1_LV3:
+				_delay_ms(20);
+				Set_Cursor_Line_3();
+				Print_multiple_character(T_MENU_3_4_1_LV3, MYSTRING_LEN(T_MENU_3_4_1_LV3));
+				break;
+			case IN_MENU_3_4_1_LV3:
+				Set_Cursor_Line_1();
+				print_0x30(alarm_hour/10);
+				print_0x30(alarm_hour%10);
+				print_0x30(alarm_minute/10);
+				print_0x30(alarm_minute%10);
+				// print_0x30(alarm_sec/10);
+				// print_0x30(alarm_sec%10);
+				break;
+			case MENU_4_4_1_LV3:
+				_delay_ms(20);
+				Set_Cursor_Line_4();
+				Print_multiple_character(T_MENU_4_4_1_LV3, MYSTRING_LEN(T_MENU_4_4_1_LV3));
+				break;
+			case IN_MENU_4_4_1_LV3:
+				Cursor_Home();
+				new_minute = count;
+				if(new_minute >= 60){
+					new_minute = 0;
+					count = 0;
+					new_hour++;
+				}
+				if(new_minute <= -1){
+					new_minute = 59;
+					count = 59;
+					new_hour--;
+				}
+				if(new_hour > 23){
+					new_hour = 0;
+				}
+				if(new_hour < 0){
+					new_hour = 23;
+				}
+				sprintf(str2, "%02d", new_hour);
+				Print_multiple_character(str2, 2);
+				_delay_ms(20);
+				sprintf(str2, "%02d", new_minute);
+				Print_multiple_character(str2, 2);
+				_delay_ms(20);
+				break;
+		}
+		_delay_ms(100);
 		
 
 		/* ----------------------------- Segment for Serial Communication Testing
@@ -838,17 +1267,47 @@ int main(void){
 			// clear_buffer();
 			// Set_Cursor_Line_1();
 			// Display_Clear();
+			available_id[0] = 1;
+			if(single_buf[0] == '0' && single_buf[1] == '0' && single_buf[2] == 'F' && single_buf[3] == 'F'){
+				// Cursor_Home();
+				_delay_ms(20);
+				// Print_multiple_character(&single_buf[6], 4);
+				// print_buf();
+				// sscanf(&single_buf[6], "%d", &remote_adc_photo);
+				int j = 0;
+				int assigned = -1;
+				for(j=0;j<10;j++){
+					if(available_id[j]==0){
+						assigned = j+1;
+						break;
+					}
+				}
+				if(assigned != -1){
+					char out2[2];
+					sprintf(out2, "%02d", assigned);
+					char msg[10];
+				    // strcpy(msg, "01AC");
+				    // strcat(msg, out2);
+				    strcat(msg, "01FF000000");
+				    sci_outs(msg);
+				}
+			}
 			if(single_buf[0] == '0' && single_buf[1] == '1' && single_buf[2] == 'A' && single_buf[3] == 'B'){
-				Cursor_Home();
+				// Cursor_Home();
 				_delay_ms(20);
-				Print_multiple_character(single_buf, 10);
-			}else if(single_buf[0] == '0' && single_buf[1] == '1' && single_buf[2] == 'A' && single_buf[3] == 'C'){
-				Set_Cursor_Line_2();
+				// Print_multiple_character(&single_buf[6], 4);
+				// print_buf();
+				sscanf(&single_buf[6], "%d", &remote_adc_photo);
+			}
+			if(single_buf[0] == '0' && single_buf[1] == '1' && single_buf[2] == 'A' && single_buf[3] == 'C'){
+				// Set_Cursor_Line_2();
 				_delay_ms(20);
-				Print_multiple_character(single_buf, 10);
+				// Print_multiple_character(&single_buf[6], 4);
+				sscanf(&single_buf[6], "%d", &remote_adc_moist);
+				// print_buf();
 			}
 			Received_ISR_end = 0;
-			counter = 0;
+			sci_rx_counter = 0;
 			// _delay_ms(200);
 			// sci_outs("ACKK");
 		}
@@ -866,7 +1325,7 @@ int main(void){
 		// tens = count - tens*10;
 		// out = 0x30 + tens;
 		// Print_a_character(out);
-		Cursor_Home();
+		// Cursor_Home();
 
 	}
 	return 0;

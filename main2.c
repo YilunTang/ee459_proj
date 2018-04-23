@@ -15,6 +15,8 @@
 
 volatile int adc_photo = 0;
 volatile int adc_moist = 0;
+volatile int moist_threshold = 200;
+volatile char mode = 0;
 
 unsigned char old_sec = NULL;
 unsigned char old_minute = NULL;
@@ -27,11 +29,13 @@ unsigned char old_year = NULL;
 
 volatile char single_buf[10];
 volatile bool Received_ISR_end = 0;
-volatile int counter = 0;
+volatile int sci_rx_counter = 0;
 
 volatile int count = 0;
 volatile int before = 0;
 volatile int hold = 0;
+
+volatile int myid = -1;
 
 void adc_subroutine(){
         //Start ADC on channel 1 = PC1
@@ -140,16 +144,16 @@ ISR(USART_RX_vect)
 	// Code to be executed when the USART receives a byte here
 	char ch;
 
-    ch = UDR0;                  // Get the received charater
+    ch = sci_in();                  // Get the received charater
 
     // Store in buffer
     // insertArray(storage_buffer, ch);
     if(!Received_ISR_end){
     // Print_a_character(ch);
-      single_buf[counter] = ch;
-      counter++;
+      single_buf[sci_rx_counter] = ch;
+      sci_rx_counter++;
     }
-    if(counter == 10){
+    if(sci_rx_counter == 10){
     	Received_ISR_end = 1;
     }
     // If message complete, set flag
@@ -178,13 +182,12 @@ void send_moist(){
 
 void message_waiting_routine(){
 	while(!Received_ISR_end);
-	Received_ISR_end = 0;
-	counter = 0;
 }
 
 int main(void){
 	// PORTC = 0x00;
 	DDRC &= 0b11110000;
+    DDRC |= 0b00000010;
 
 	PORTD = 0x00;
 	DDRD &= 0b11000011; // 5, 4, 3, 2 is input
@@ -209,23 +212,67 @@ int main(void){
 	// sci_out('A');
 	// rtc_subroutine_time();
 	// Print_a_character(0x30);
-	
+	// while(1){
+ //        _delay_ms(100);
+ //        sci_outs("00FF000000");
+ //        if(Received_ISR_end){
+ //            // Print_multiple_character(storage_buffer->array, storage_buffer->size);
+ //            // clear_buffer();
+ //            // Set_Cursor_Line_1();
+ //            // Display_Clear();
+ //            if(single_buf[2] == 'F' && single_buf[3] == 'F'){
+ //                // Cursor_Home();
+ //                Received_ISR_end = 0;
+ //                sci_rx_counter = 0;
+ //                break;
+ //            }
+ //        }
+ //    }
+ //    char ids[2];
+ //    memcpy(ids, single_buf, 2);
+ //    sscanf(ids, "%d", &myid);
+ //    Received_ISR_end = 0;
+ //    sci_rx_counter = 0;
+
 	while(1){
 		// sci_out(0b01010101);
-		// _delay_ms(100);
 		// sci_outs("AbCd");
         adc_subroutine();
 
         send_photo();
+        _delay_ms(20);
         send_moist();
+        _delay_ms(20);
+
+        int temp_thre = moist_threshold;
+        if(adc_moist < temp_thre && mode == 0){
+            PORTC |= 1<<PC1;
+        }else if(adc_moist >= temp_thre && mode == 0){
+            PORTC &= 0<<PC1;
+        }
 
 		/* ----------------------------- Segment for Serial Communication Testing
 		*/
-		// if(Received_ISR_end){
-		// 	Received_ISR_end = 0;
-		// 	Print_multiple_character(storage_buffer->array, storage_buffer->size);
-		// 	clear_buffer();
-		// }
+		if(Received_ISR_end){
+            // Print_multiple_character(storage_buffer->array, storage_buffer->size);
+            // clear_buffer();
+            // Set_Cursor_Line_1();
+            // Display_Clear();
+            if(single_buf[0] == '0' && single_buf[1] == '1' && single_buf[2] == 'W' && single_buf[3] == 'W'){
+                PORTC |= 1<<PC1;
+                mode = 1;
+            }
+            if(single_buf[0] == '0' && single_buf[1] == '1' && single_buf[2] == 'N' && single_buf[3] == 'N'){
+                if(mode==1){
+                    PORTC &= 0<<PC1;
+                }
+            }
+            if(single_buf[0] == '0' && single_buf[1] == '1' && single_buf[2] == 'A' && single_buf[3] == 'U'){
+                mode = 0;
+            }
+            Received_ISR_end = 0;
+            sci_rx_counter = 0;
+        }
 
 	}
 	return 0;
