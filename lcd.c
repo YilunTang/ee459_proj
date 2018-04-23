@@ -96,6 +96,10 @@ void setup()
   unsigned char blink_cursor[2] = {LCD_PRE, BLINK_CURSOR_ON};
   i2c_io (I2C_ADDRESS, NULL, 0, blink_cursor, 2, NULL, 0);
   _delay_ms(200);
+  i2c_io (I2C_ADDRESS, NULL, 0, blink_cursor, 2, NULL, 0);
+  _delay_ms(10);
+  i2c_io (I2C_ADDRESS, NULL, 0, blink_cursor, 2, NULL, 0);
+  _delay_ms(10);
 
   unsigned char brightness[3] = {LCD_PRE, 0x53, 3};
   i2c_io (I2C_ADDRESS, NULL, 0, brightness, 3, NULL, 0);
@@ -189,7 +193,7 @@ uint8_t Print_multiple_character(char* input, int length){
         buf = displayNumber[*input-'0'];
       }
       Print_a_character(buf);
-      // _delay_ms(10);
+      _delay_ms(10);
   }
   return 0;
 }
