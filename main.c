@@ -99,10 +99,6 @@ volatile unsigned char pre_alarm_sec = 0;
 volatile unsigned char pre_alarm_minute = 0;
 volatile unsigned char pre_alarm_hour = 0;
 
-// extern bool Received_ISR_end;
-// extern struct Array* storage_buffer;
-// extern char single_buf;
-
 // char single_buf;
 volatile char single_buf[10];
 volatile bool Received_ISR_end = 0;
@@ -632,12 +628,6 @@ int main(void){
 	*/
 
 	while(1){
-		// Print_a_character(0x35);
-		// sci_out(0b01010101);
-		// _delay_ms(1000);
-		// sci_out('X');
-		// sci_outs("aBcd");
-		// sci_outs("AT");
 		adc_subroutine();
 		_delay_ms(5);
 		rtc_subroutine_time();
@@ -674,23 +664,6 @@ int main(void){
 		}else{
 			PORTC &= 0 << PC0;
 		}
-
-		// if(flag){
-		// 	Cursor_Home();
-		// 	Display_Clear();
-		// }
-		// _delay_ms(100);
-		// char flag = checkInput(4);
-		// if(!flag){
-		// 	button_state = 0;
-		// 	// PORTC = 0b11111111;
-		// 	Print_a_character(0x30+flag);
-		// }else{
-		// 	button_state = 1;
-		// 	// PORTC = 0b00000000;
-		// 	Print_a_character(0x30+flag);
-		// }
-		// Cursor_Home();
 
 
 		/* ----------------------------------------------------------*/
@@ -775,12 +748,6 @@ int main(void){
 				break;			
 		}
 		
-
-		// // Cursor_Home();
-
-		// // char to_print = 0x30 + button_state;
-		// // Print_a_character(to_print);
-		// // _delay_ms(10);
 
 		// /*----------------------- Segment for basic menu navigation
 		// */
@@ -1308,24 +1275,9 @@ int main(void){
 			}
 			Received_ISR_end = 0;
 			sci_rx_counter = 0;
-			// _delay_ms(200);
-			// sci_outs("ACKK");
+
 		}
-		// Print_a_character(single_buf);
-		// Print_a_character(sci_in());
 
-		// while(!(UCSR0A & (1<<RXC0)));
-		// 	 Print_a_character(UDR0);
-
-		/*------------------------------- Segment for Rotary Encoder Testing
-		*/
-		// char tens = count / 10;
-		// char out = 0x30 + tens;
-		// Print_a_character(out);
-		// tens = count - tens*10;
-		// out = 0x30 + tens;
-		// Print_a_character(out);
-		// Cursor_Home();
 
 	}
 	return 0;

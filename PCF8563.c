@@ -63,26 +63,6 @@ static inline unsigned long long S_to_binary_(const char *s)
 
 void initClock()
 {  	  
-  // Wire.beginTransmission(Rtcc_Addr);	// Issue I2C start signal
-  // Wire.send(0x0);    	// start address
-  	
-  // Wire.send(0x0); 	//control/status1
-  // Wire.send(0x0); 	//control/status2
-  // Wire.send(0x01); 	//set seconds
-  // Wire.send(0x01);	//set minutes
-  // Wire.send(0x01);	//set hour
-  // Wire.send(0x01);	//set day
-  // Wire.send(0x01);	//set weekday
-  // Wire.send(0x01); 	//set month, century to 1
-  // Wire.send(0x01);	//set year to 99
-  // Wire.send(0x80);	//minute alarm value reset to 00
-  // Wire.send(0x80);	//hour alarm value reset to 00
-  // Wire.send(0x80);	//day alarm value reset to 00
-  // Wire.send(0x80);	//weekday alarm value reset to 00
-  // Wire.send(0x0); 	//set SQW, see: setSquareWave
-  // Wire.send(0x0); 	//timer off
-  // Wire.endTransmission();
-  // unsigned char buf[2] = {RTCC_STAT1_ADDR, 0x00};
   unsigned char abuf;
   abuf = RTCC_STAT1_ADDR;
   unsigned char wbuf;

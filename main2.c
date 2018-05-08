@@ -208,31 +208,6 @@ int main(void){
 	/* ----------------------  Segment for Serial Communication Testing
 	*/
 
-	// sci_outs("AT");
-	// sci_out('A');
-	// rtc_subroutine_time();
-	// Print_a_character(0x30);
-	// while(1){
- //        _delay_ms(100);
- //        sci_outs("00FF000000");
- //        if(Received_ISR_end){
- //            // Print_multiple_character(storage_buffer->array, storage_buffer->size);
- //            // clear_buffer();
- //            // Set_Cursor_Line_1();
- //            // Display_Clear();
- //            if(single_buf[2] == 'F' && single_buf[3] == 'F'){
- //                // Cursor_Home();
- //                Received_ISR_end = 0;
- //                sci_rx_counter = 0;
- //                break;
- //            }
- //        }
- //    }
- //    char ids[2];
- //    memcpy(ids, single_buf, 2);
- //    sscanf(ids, "%d", &myid);
- //    Received_ISR_end = 0;
- //    sci_rx_counter = 0;
 
 	while(1){
 		// sci_out(0b01010101);
